@@ -15,6 +15,14 @@ zrestore --help
 zbackupquery
 ```
 
+### Config file
+
+/opt/zimbra/conf/zbackup.ini
+
+### Logs
+
+/opt/zimbra/log/zbackup.log
+
 ### Backup commands
 
 All commands must be executed as zimbra user
