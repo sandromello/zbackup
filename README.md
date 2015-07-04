@@ -8,18 +8,20 @@ Requires pip or installation of specific distro packages python-argparse and pyt
 curl --silent -L https://raw.githubusercontent.com/sandromello/zbackup/master/bootstrap.sh | sudo sh -s --
 ```
 
+Configure and admin account with privileges of admin, you can create one with the following command
+
 ```
 su - zimbra
-zbackup --help
-zrestore --help
-zbackupquery
+zmprov ca zbackup@mydomain.tld VERYSTRONGPASSWORD zimbraIsAdminAccount TRUE
 ```
 
-### Config file
+Then configure the directives admin_user and admin_password into /opt/zimbra/conf/zbackup.ini and it's done!
+
+#### Configuration
 
 /opt/zimbra/conf/zbackup.ini
 
-### Logs
+#### Logs
 
 /opt/zimbra/log/zbackup.log
 
