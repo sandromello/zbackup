@@ -18,6 +18,8 @@ if __name__ == '__main__':
   parser.add_argument('--ctypes', metavar='<message,content,appointment,task,document>',
     help='which content to restore: message,contact,appointment,task,document. Default: all')
   parser.add_argument('-a', metavar='<account>', help='Start a restore for a specific account', required=True)
+  parser.add_argument('--to', metavar='<account>', help='Restore into a different account')
+  parser.add_argument('-f', action='store_true', help='Do not prompt for warnings')
   parser.add_argument('--resolve', metavar='<ignore|modify|replace|reset>', 
     help='Resolve duplicates. ignore. modify: update older items. reset: delete the old subfolder. replace: replace the existing items. Default: ignore')
   parser.add_argument('--destfolder', metavar='<destfolder>', help='Destination folder to restore')
@@ -43,9 +45,18 @@ if __name__ == '__main__':
   if args.debug:
     debug = True
 
+  if not args.to:
+    args.to = args.a
+    if not args.f:
+      print 'WARNING! The content will be restored into the same account, \
+this could lead to unwanted behavior like duplication of the content.'
+      if not 'Y' == raw_input('Procced? Y/N '):
+        print 'aborting...'
+        sys.exit(0)
+
   try:
     zcr = ZBackupRequest(args.a, BACKUP_DESTINATION, debug=debug, ctypes=args.ctypes)
-    zcr.run_restore(label=args.label, resolve=args.resolve, dest_folder=args.destfolder, sync=args.sync)
+    zcr.run_restore(args.label, args.to, resolve=args.resolve, dest_folder=args.destfolder, sync=args.sync)
   except Exception, e:
     if args.sync:
       print 'Error running restore: %s' % e
