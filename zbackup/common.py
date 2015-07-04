@@ -7,7 +7,7 @@ from datetime import datetime, timedelta
 from base64 import b64encode
 
 CONFIG_FILE_INI = '/opt/zimbra/conf/zbackup.ini'
-ZIMBRA_ACCOUNT_STATUS = ['active', 'maintenance', 'locked', 'closed', 'lockout', 'pending']
+ZIMBRA_ACCOUNT_STATUS = ['active', 'locked', 'closed', 'lockout', 'pending']
 
 class ZBackupLockingError(Exception): pass
 class ZBackupError(Exception): pass
@@ -150,7 +150,7 @@ class ZBackupRequest(object):
     self.host = host
     self.ctypes = ctypes
 
-  def run_backup(self, fromtime=None, totime=datetime.now(), sync=True):
+  def run_backup(self, status_list, fromtime=None, totime=datetime.now(), sync=True):
     if not os.path.isdir(self.bkp_location):
       raise ZBackupError('Backup path does not exists: %s' % self.bkp_location)
 
@@ -164,7 +164,7 @@ class ZBackupRequest(object):
 
     target_accounts = {}
     if self.target == 'all':
-      for account in self.get_all_accounts():
+      for account in self.get_all_accounts(status_list):
         target_accounts[account] = ZBackupUrl(self.host, account, fromtime, ctypes=self.ctypes)
     elif not self.target == 'ldap':
       for account in self.target.split(','):
@@ -351,21 +351,18 @@ class ZBackupRequest(object):
       break
     return match == account
 
-  def build_search_query(self):
-    status = self.config.get('main', 'backup_by_status').split(',')
-    if [s.strip() for s in status if s.strip() not in ZIMBRA_ACCOUNT_STATUS]:
-      raise ValueError('Wrong value for config backup_by_status')
+  def build_search_query(self, status_list):
     query = '(&(objectClass=zimbraAccount)%s(!(zimbraIsSystemResource=TRUE))(!(objectClass=zimbraCalendarResource)))'
     status_query = ''
-    for s in status:
-      status_query += '(|(zimbraAccountStatus=%s)' % s
+    for s in status_list:
+      status_query += '(|(zimbraAccountStatus=%s)' % s.strip()
     
-    for s in status:
+    for s in status_list:
       status_query += ')'
     return query % status_query
 
-  def get_all_accounts(self):
-    query = self.build_search_query()
+  def get_all_accounts(self, status_list):
+    query = self.build_search_query(status_list)
     self.log.debug(query)
     #query = '(&(objectClass=zimbraAccount)(!(zimbraIsSystemResource=TRUE))(!(objectClass=zimbraCalendarResource)))'
     attrs = ['zimbraMailDeliveryAddress']

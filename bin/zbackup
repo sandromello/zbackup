@@ -4,7 +4,7 @@ from datetime import datetime
 from traceback import format_exc
 
 sys.path.insert(0, '/opt/zimbra')
-from zbackup.common import ZBackupRequest, ZBackupConfig, CONTENT_TYPES
+from zbackup.common import ZBackupRequest, ZBackupConfig, CONTENT_TYPES, ZIMBRA_ACCOUNT_STATUS
 
 BACKUP_DESTINATION = os.environ.get('ZIMBRA_HOME')
 if not BACKUP_DESTINATION:
@@ -20,6 +20,8 @@ if __name__ == '__main__':
   parser.add_argument('-f', metavar='<account|all>',
     help='Start a full backup from all or a specific one: all or account@domain.tld')
   parser.add_argument('--sync', action='store_true', help='Runs backup synchronously.')
+  parser.add_argument('--status', metavar='<status>', 
+    help='Specify the status of accounts for backuping up. active,locked,closed,lockout,pending. Default: all')
   parser.add_argument('--fromtime', metavar='<ymdhms>',
     help='Backup from a specific time. Format: YearMonthDayHourMinuteSeconds. E.g.: 20150320160000')
   parser.add_argument('--debug', action='store_true', help='Turn on debuging')
@@ -36,6 +38,15 @@ if __name__ == '__main__':
       print parser.print_help()
       sys.exit(1)
 
+  if args.status:
+    args.status = args.status.split(',')
+    for s in args.status:
+      if s.strip() not in ZIMBRA_ACCOUNT_STATUS:
+        print 'Status Type Error. Accepted types: %s' % ','.join(ZIMBRA_ACCOUNT_STATUS)
+        print parser.print_help()
+        sys.exit(1)
+
+  args.status = args.status or ZIMBRA_ACCOUNT_STATUS
   BACKUP_DESTINATION = args.target or BACKUP_DESTINATION
   
   if args.fromtime:
@@ -75,7 +86,7 @@ if __name__ == '__main__':
 
   try:
     zcr = ZBackupRequest(args.f, BACKUP_DESTINATION, debug=debug, ctypes=args.ctypes)
-    zcr.run_backup(fromtime=fromtime, sync=args.sync)
+    zcr.run_backup(args.status, fromtime=fromtime, sync=args.sync)
   except Exception, e:
     if args.sync:
       print 'Error running backup: %s' % e
