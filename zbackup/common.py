@@ -158,6 +158,10 @@ class ZBackupRequest(object):
     if not os.path.isdir(sessions_path):
       os.makedirs(sessions_path)
 
+    label = self.new_label()
+    label_path = '%s/%s' % (self.bkp_session_location, label)
+    print label
+
     target_accounts = {}
     if self.target == 'all':
       for account in self.get_all_accounts():
@@ -168,10 +172,6 @@ class ZBackupRequest(object):
         if not self.is_valid_account(account):
           self.log.error('Account not found: %s' % account)
           raise ZBackupError('Account not found: %s' % account)
-
-    label = self.new_label()
-    label_path = '%s/%s' % (self.bkp_session_location, label)
-    print label
 
     if not sync:
       if os.fork():
