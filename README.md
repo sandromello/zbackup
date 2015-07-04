@@ -1,6 +1,6 @@
 Backup and restore Zimbra Open Source online
 
-# Installation
+# Installation/Upgrade
 
 Requires pip or installation of specific distro packages python-argparse and python-ldap
 
