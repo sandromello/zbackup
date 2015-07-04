@@ -7,6 +7,7 @@ from datetime import datetime, timedelta
 from base64 import b64encode
 
 CONFIG_FILE_INI = '/opt/zimbra/conf/zbackup.ini'
+ZIMBRA_ACCOUNT_STATUS = ['active', 'maintenance', 'locked', 'closed', 'lockout', 'pending']
 
 class ZBackupLockingError(Exception): pass
 class ZBackupError(Exception): pass
@@ -227,9 +228,12 @@ class ZBackupRequest(object):
       self.log.info('SUCCESS backing up %s account(s)' % len(cfg[label]['accounts']))
       self.log.info('FAIL backing up %s account(s)' % len(cfg[label]['failaccounts']))
 
-  def run_restore(self, label, resolve='ignore', dest_folder='', sync=True):
+  def run_restore(self, label, dest_account, resolve='ignore', dest_folder='', sync=True):
     if not os.path.isdir(self.bkp_location):
       raise ZBackupError('Backup path does not exists: %s' % self.bkp_location)
+
+    self.log.info('Resolve duplicates: %s' % resolve)
+    self.log.info('Content to restore: %s' % self.ctypes)
 
     accounts_path = self.bkp_location + '/sessions/%s/accounts' % label
     url_parts = ''
@@ -241,11 +245,11 @@ class ZBackupRequest(object):
     else:
       resolve = '&resolve=%s' % resolve
 
-    url = 'https://%s:7071/home/%s%s?fmt=tgz%s%s' % (self.host, self.target, dest_folder, url_parts, resolve)
+    url = 'https://%s:7071/home/%s%s?fmt=tgz%s%s' % (self.host, dest_account, dest_folder, url_parts, resolve)
     self.log.debug('URL: %s' % url)
 
     account_path = '%s/%s.tgz' % (accounts_path, self.target)
-    self.log.debug('Account path: %s' % account_path)
+    self.log.debug('File path: %s' % account_path)
 
     if not os.path.isfile(account_path):
       raise ZRestoreError('Could not find account path: %s' % account_path)
@@ -256,7 +260,10 @@ class ZBackupRequest(object):
         sys.exit()
 
     filesize = os.stat(account_path).st_size / 1024 / 1024
-    self.log.info('Starting restore: %s Backup Size: %s MB' % (self.target, filesize))
+    self.log.info('Starting restore: %s into account %s. Backup Size: %s MB' % (self.target, dest_account, filesize))
+    if self.target == dest_account:
+      self.log.warning('Restoring to the same account could duplicate or reset the content')
+
     try:
       self.start_upload(
         url,
@@ -265,9 +272,9 @@ class ZBackupRequest(object):
         self.target,
         account_path
       )
-      self.log.info('Restored completed for account %s' % self.target)
+      self.log.info('Restore completed for account %s' % dest_account)
     except Exception, e:
-      self.log.error('Error restoring account: %s' % self.target)
+      self.log.error('Error restoring account: %s' % dest_account)
       self.log.exception(e)
       raise e
 
@@ -309,7 +316,6 @@ class ZBackupRequest(object):
     request = urllib2.Request(url, data=stream, headers=headers)
     urllib2.urlopen(request)
 
-
   def start_ldap_backup(self, label_path):
     label_path = label_path + '/ldap/'
     self.zmslapcat(label_path)
@@ -345,8 +351,23 @@ class ZBackupRequest(object):
       break
     return match == account
 
+  def build_search_query(self):
+    status = self.config.get('main', 'backup_by_status').split(',')
+    if [s.strip() for s in status if s.strip() not in ZIMBRA_ACCOUNT_STATUS]:
+      raise ValueError('Wrong value for config backup_by_status')
+    query = '(&(objectClass=zimbraAccount)%s(!(zimbraIsSystemResource=TRUE))(!(objectClass=zimbraCalendarResource)))'
+    status_query = ''
+    for s in status:
+      status_query += '(|(zimbraAccountStatus=%s)' % s
+    
+    for s in status:
+      status_query += ')'
+    return query % status_query
+
   def get_all_accounts(self):
-    query = '(&(objectClass=zimbraAccount)(!(zimbraIsSystemResource=TRUE))(!(objectClass=zimbraCalendarResource)))'
+    query = self.build_search_query()
+    self.log.debug(query)
+    #query = '(&(objectClass=zimbraAccount)(!(zimbraIsSystemResource=TRUE))(!(objectClass=zimbraCalendarResource)))'
     attrs = ['zimbraMailDeliveryAddress']
     accounts = []
     for dn, entry in self.ldap_query(query, attrs):
