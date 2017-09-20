@@ -31,7 +31,7 @@ All commands must be executed as zimbra user
 
 ```
 # Export the environment variable first
-export ZIMBRA_HOME=$(zmlocalconfig zimbra_home)
+export ZIMBRA_HOME=$(zmlocalconfig -m nokey zimbra_home)
 
 # Start a full backup. The process goes to background
 zbackup -f all
