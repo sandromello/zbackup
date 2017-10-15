@@ -12,6 +12,7 @@ if not BACKUP_DESTINATION:
   sys.exit(1)
 
 BACKUP_DESTINATION += '/backup'
+HOST = 'localhost'
 
 if __name__ == '__main__':
   parser = argparse.ArgumentParser(description='Zimbra Backup line command')
@@ -20,7 +21,7 @@ if __name__ == '__main__':
   parser.add_argument('-f', metavar='<account|all>',
     help='Start a full backup from all or a specific one: all or account@domain.tld')
   parser.add_argument('--sync', action='store_true', help='Runs backup synchronously.')
-  parser.add_argument('--status', metavar='<status>', 
+  parser.add_argument('--status', metavar='<status>',
     help='Specify the status of accounts for backuping up. active,locked,closed,lockout,pending. Default: all')
   parser.add_argument('--fromtime', metavar='<ymdhms>',
     help='Backup from a specific time. Format: YearMonthDayHourMinuteSeconds. E.g.: 20150320160000')
@@ -28,7 +29,8 @@ if __name__ == '__main__':
   parser.add_argument('--ldap', action='store_true', help='Runs a full backup only for LDAP')
   parser.add_argument('--abort', metavar='<label>', help='Abort backup job.')
   parser.add_argument('--target', help='Backup target location (default <zimbra_home>/backup)')
-  
+  parser.add_argument('--host', help='Host to connect to (default localhost)')
+
   args = parser.parse_args()
 
   debug, ctypes, fromtime = (False, None, None)
@@ -48,7 +50,8 @@ if __name__ == '__main__':
 
   args.status = args.status or ZIMBRA_ACCOUNT_STATUS
   BACKUP_DESTINATION = args.target or BACKUP_DESTINATION
-  
+  HOST = args.host or HOST
+
   if args.fromtime:
     try:
       fromtime = datetime.strptime(args.fromtime, '%Y%m%d%H%M%S')
@@ -85,7 +88,7 @@ if __name__ == '__main__':
     args.f = 'ldap'
 
   try:
-    zcr = ZBackupRequest(args.f, BACKUP_DESTINATION, debug=debug, ctypes=args.ctypes)
+    zcr = ZBackupRequest(args.f, BACKUP_DESTINATION, debug=debug, ctypes=args.ctypes, host=HOST)
     zcr.run_backup(args.status, fromtime=fromtime, sync=args.sync)
   except Exception, e:
     if args.sync:
